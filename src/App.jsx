@@ -1601,28 +1601,43 @@ export default function App() {
   const [state,setState]=useState(DEFAULT);
   const [tab,setTab]=useState("home");
   const [showPin,setShowPin]=useState(false);
-  // ── 공유 스토리지에서 데이터 로드 ──────────────────────────
+  // ── Firebase 실시간 구독 ─────────────────────────────────
   useEffect(()=>{
-    const load = async () => {
-      try {
-        const res = await window.storage.get("pgApp_state", true);
-        if(res && res.value) {
-          const parsed = JSON.parse(res.value);
-          setState(p=>({...p,...parsed,isUnlocked:false}));
-        }
-      } catch(e) {}
-      try {
-        const ph = await window.storage.get("pgApp_photos", true);
-        if(ph && ph.value) {
-          const photos = JSON.parse(ph.value);
-          setState(p=>({...p, photos}));
-        }
-      } catch(e) {}
+    // 상태 실시간 구독
+    let unsubState = null;
+    let unsubPhotos = null;
+    const subscribe = () => {
+      if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
+        const stateRef = window.firebaseRef(window.firebaseDb, "shared/pgApp_state");
+        unsubState = window.firebaseOnValue(stateRef, (snapshot) => {
+          const value = snapshot.val();
+          if(value) {
+            try {
+              const parsed = JSON.parse(value);
+              setState(p=>({...p,...parsed,isUnlocked:p.isUnlocked}));
+            } catch(e) {}
+          }
+        });
+        const photosRef = window.firebaseRef(window.firebaseDb, "shared/pgApp_photos");
+        unsubPhotos = window.firebaseOnValue(photosRef, (snapshot) => {
+          const value = snapshot.val();
+          if(value) {
+            try {
+              const photos = JSON.parse(value);
+              setState(p=>({...p, photos}));
+            } catch(e) {}
+          }
+        });
+      } else {
+        // Firebase 로드 전 재시도
+        setTimeout(subscribe, 500);
+      }
     };
-    load();
-    // 5초마다 폴링으로 실시간 반영
-    const interval = setInterval(load, 5000);
-    return () => clearInterval(interval);
+    subscribe();
+    return () => {
+      if(unsubState) unsubState();
+      if(unsubPhotos) unsubPhotos();
+    };
   }, []);
   const save = async (u) => {
     const nx = {...state, ...u};
