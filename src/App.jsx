@@ -916,16 +916,33 @@ function FamilyEntry({onEnter}) {
     return r;
   };
 
+  const [setupStep, setSetupStep] = useState(null); // null | 'password'
+  const [newCode, setNewCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [pwError, setPwError] = useState('');
+
+  const startCreate = () => {
+    const code = generateCode();
+    setNewCode(code);
+    setSetupStep('password');
+  };
+
   const createFamily = async () => {
+    if(password.length !== 4 || !/^\d{4}$/.test(password)) {
+      setPwError('숫자 4자리로 설정해주세요'); return;
+    }
+    if(password !== password2) {
+      setPwError('비밀번호가 일치하지 않아요'); return;
+    }
     setLoading(true);
-    const newCode = generateCode();
     try {
       if(window.firebaseDb && window.firebaseRef) {
         const { set: fbSet } = await import('firebase/database');
         const r = window.firebaseRef(window.firebaseDb, `families/${newCode}/pgApp_state`);
         await fbSet(r, JSON.stringify({
           week:8, gender:"unknown", dueDate:"", babyName:"", momName:"",
-          conditions:[], pin:"1234", memo:"", foodRatings:{},
+          conditions:[], pin:password, memo:"", foodRatings:{},
           hospital:null, checkToday:{}, checkDate:"", appointments:[], familyCode:newCode
         }));
       }
@@ -957,7 +974,7 @@ function FamilyEntry({onEnter}) {
     delay: Math.random()*6,
     duration: 4 + Math.random()*4,
     size: 8 + Math.random()*12,
-    emoji: ['🌸','🌺','✿','❀','🌷','💮'][Math.floor(Math.random()*6)],
+    emoji: ['🌸','🌺','🌷','🍀','🌻','🍁','❄️','⭐','🌼','💐'][Math.floor(Math.random()*10)],
   }));
 
   return (
@@ -1086,22 +1103,14 @@ function FamilyEntry({onEnter}) {
         {/* 버튼 영역 */}
         {!mode && (
           <div style={{width:"100%",maxWidth:340}}>
-            <button onClick={createFamily} disabled={loading}
+            <button onClick={startCreate}
               style={{width:"100%",padding:"17px",borderRadius:22,border:"none",
                 background:"linear-gradient(135deg,#f48fb1 0%,#f06292 50%,#e91e63 100%)",
-                color:"#fff",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",
+                color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",
                 marginBottom:12,boxShadow:"0 6px 20px rgba(240,98,146,.35)",
                 display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-                transform:"translateY(0)",transition:"transform .15s, box-shadow .15s",
-              }}
-              onMouseOver={e=>{e.target.style.transform="translateY(-2px)";e.target.style.boxShadow="0 8px 24px rgba(240,98,146,.45)";}}
-              onMouseOut={e=>{e.target.style.transform="translateY(0)";e.target.style.boxShadow="0 6px 20px rgba(240,98,146,.35)";}}
-            >
-              {loading ? (
-                <><span style={{fontSize:20}}>⏳</span> 만드는 중...</>
-              ) : (
-                <><span style={{fontSize:22}}>🤰</span> 새 가족 공간 만들기</>
-              )}
+              }}>
+              <span style={{fontSize:22}}>🤰</span> 새 가족 공간 만들기
             </button>
 
             <button onClick={()=>setMode('join')}
@@ -1200,8 +1209,8 @@ function PinModal({onSuccess,onClose,gender}) {
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
       <div style={{background:"#fff",borderRadius:28,padding:"2rem 2.2rem",textAlign:"center",boxShadow:"0 24px 64px rgba(0,0,0,.18)",minWidth:286}}>
         <BabyWriting size={70} gender={gender}/>
-        <div style={{fontSize:16,fontWeight:700,color:"#3d2c2c",marginBottom:2,marginTop:4}}>엄마 전용 편집모드</div>
-        <div style={{fontSize:12,color:"#aaa",marginBottom:18}}>PIN 4자리를 눌러주세요</div>
+        <div style={{fontSize:16,fontWeight:700,color:"#3d2c2c",marginBottom:2,marginTop:4}}>엄마 전용 비밀번호 입력</div>
+        <div style={{fontSize:12,color:"#aaa",marginBottom:18}}>비밀번호 4자리를 눌러주세요</div>
         <div style={{display:"flex",gap:11,justifyContent:"center",marginBottom:18}}>
           {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:"50%",border:"2px solid #f8bbd0",background:inp.length>i?(err?"#ef9a9a":"#f06292"):"transparent",transition:"background .15s"}}/>)}
         </div>
@@ -2076,8 +2085,8 @@ function SettingsTab({state,onUpdate,onLock}) {
         ))}
       </div>
       <div className="glass-card" style={{borderRadius:16,padding:"1rem",marginBottom:13}}>
-        <div style={{fontSize:11,color:"#888",marginBottom:5}}>🔑 PIN 변경 (4자리)</div>
-        <input type="password" value={form.pin||""} onChange={e=>setForm(p=>({...p,pin:e.target.value}))} maxLength={4} placeholder="새 PIN 4자리"
+        <div style={{fontSize:11,color:"#888",marginBottom:5}}>🔑 비밀번호 변경 (숫자 4자리)</div>
+        <input type="password" value={form.pin||""} onChange={e=>setForm(p=>({...p,pin:e.target.value}))} maxLength={4} placeholder="새 비밀번호 4자리 입력"
           style={{width:"100%",padding:"11px",borderRadius:11,border:"1.5px solid #ddd",fontSize:16,outline:"none",letterSpacing:8,textAlign:"center"}}/>
       </div>
       <button onClick={save} disabled={saving} style={{width:"100%",padding:"15px",borderRadius:17,border:"none",background:saving?"#f8bbd0":"linear-gradient(135deg,#f48fb1,#f06292)",color:"#fff",fontSize:15,fontWeight:700,cursor:saving?"default":"pointer",boxShadow:"0 4px 16px rgba(240,98,146,.38)",transition:"background .2s"}}>
