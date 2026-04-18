@@ -683,7 +683,498 @@ const CAUTION_LIST = [
   },
 ];
 
-const DEFAULT = {week:16,gender:"unknown",dueDate:"",babyName:"",momName:"",conditions:[],pin:"1234",isUnlocked:false,memo:"",foodRatings:{},hospital:null,checkToday:{},checkDate:"",photos:[],appointments:[]};
+const DEFAULT = {week:16,gender:"unknown",dueDate:"",babyName:"",momName:"",conditions:[],pin:"1234",isUnlocked:false,memo:"",foodRatings:{},hospital:null,checkToday:{},checkDate:"",photos:[],appointments:[],familyCode:null,followingFamilies:[]};
+
+// ── 팔로잉 가족 보기 화면 ───────────────────────────────────
+function FollowingView({data, code, onBack}) {
+  const w = data.week || 8;
+  const wd = WEEKLY_DATA[w] || WEEKLY_DATA[16];
+  const sev = calcSev(data.conditions||[]);
+  const info = SEV_INFO[sev];
+  const active = ALL_SYM.filter(s=>(data.conditions||[]).includes(s.id));
+  const g = data.gender || "unknown";
+  const daysLeft = data.dueDate ? Math.max(0, Math.round((new Date(data.dueDate)-new Date())/86400000)) : null;
+  const today = new Date().toISOString().split("T")[0];
+  const nextAppt = (data.appointments||[]).filter(a=>a.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+
+  return (
+    <div style={{paddingBottom:"2rem"}}>
+      {/* 뒤로가기 헤더 */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <button onClick={onBack} style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(240,98,146,0.2)",borderRadius:12,padding:"6px 12px",fontSize:12,color:"#f06292",cursor:"pointer",fontWeight:700}}>
+          ← 내 가족
+        </button>
+        <div style={{flex:1,fontSize:14,fontWeight:700,color:"#3d2c2c"}}>
+          {data.momName ? `${data.momName}네 가족` : "친구 가족"} 👀
+        </div>
+        <div style={{fontSize:10,color:"#aaa",background:"rgba(255,255,255,0.6)",borderRadius:8,padding:"2px 7px"}}>읽기 전용</div>
+      </div>
+
+      {/* 헤더 배너 */}
+      <div style={{background:"linear-gradient(135deg,#f3e8ff,#e8d5ff,#d5e8ff)",borderRadius:22,padding:"1.4rem",marginBottom:12,position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-8,right:-8,opacity:.1,fontSize:70}}>🌸</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:11,color:"#7B1FA2",marginBottom:3}}>{w<=12?"1분기":w<=27?"2분기":"3분기"} · {w}주차</div>
+            <div style={{fontSize:19,fontWeight:700,color:"#4A148C",lineHeight:1.3,marginBottom:7}}>
+              {data.momName||"친구"}의 여정 🤰
+            </div>
+            {daysLeft!==null&&<div style={{display:"inline-block",background:"rgba(255,255,255,.55)",borderRadius:16,padding:"3px 11px",fontSize:11,color:"#4A148C",fontWeight:700}}>출산까지 D-{daysLeft}</div>}
+            {data.dueDate&&<div style={{marginTop:5,fontSize:11,color:"rgba(74,20,140,0.7)"}}>📅 {new Date(data.dueDate).toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"})}</div>}
+            {data.babyName&&<div style={{fontSize:11,color:"#7B1FA2",marginTop:3}}>태명: {data.babyName} 💕</div>}
+          </div>
+          {w<=12?<BabyTiny gender={g}/>:w<=27?<BabyMid gender={g}/>:<BabyBig gender={g}/>}
+        </div>
+      </div>
+
+      {/* 컨디션 카드 */}
+      <div style={{background:info.bg,borderRadius:20,padding:"1.2rem",marginBottom:12,border:`2px solid ${info.color}33`}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"#999",marginBottom:2}}>오늘 컨디션</div>
+            <div style={{fontSize:16,fontWeight:700,color:info.color,marginBottom:4}}>{info.label}</div>
+            {info.action&&<div style={{display:"inline-block",background:info.color,color:"#fff",borderRadius:9,padding:"3px 10px",fontSize:11,fontWeight:700}}>{info.action}</div>}
+          </div>
+          <div style={{flexShrink:0,marginLeft:8}}>
+            {sev>=4?<SickBaby gender={g}/>:sev<=1&&(data.conditions||[]).length>0?<HappyBaby gender={g}/>:<BabyNeutral gender={g}/>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:3,marginBottom:6}}>
+          {[1,2,3,4,5].map(i=><div key={i} style={{flex:1,height:9,borderRadius:5,background:sev>=i?info.color:"#EEE"}}/>)}
+        </div>
+        <div style={{background:"rgba(255,255,255,.7)",borderRadius:11,padding:"8px 11px",fontSize:11,color:"#555",lineHeight:1.6,marginBottom:active.length?8:0}}>
+          💬 {info.msg}
+        </div>
+        {active.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {active.map(s=><span key={s.id} style={{background:"rgba(255,255,255,.85)",border:`1.5px solid ${s.sev>=4?"#E53935":s.sev>=3?"#FB8C00":s.sev>=2?"#FFB300":"#66BB6A"}`,borderRadius:16,padding:"3px 8px",fontSize:10,fontWeight:700,color:s.sev>=4?"#B71C1C":s.sev>=3?"#E65100":s.sev>=2?"#E65100":"#2E7D32"}}>{s.emoji} {s.label}</span>)}
+        </div>}
+      </div>
+
+      {/* 메모 */}
+      {data.memo&&<div className="glass-card-yellow" style={{borderRadius:16,padding:"1rem 1.2rem",marginBottom:12,border:"1px solid rgba(255,240,100,0.5)"}}>
+        <div style={{fontSize:11,color:"#f9a825",fontWeight:700,marginBottom:3}}>💌 한마디</div>
+        <div style={{fontSize:13,color:"#555",lineHeight:1.6}}>{data.memo}</div>
+      </div>}
+
+      {/* 다음 진료일 */}
+      {nextAppt&&<div className="glass-card-blue" style={{borderRadius:16,padding:"1rem 1.2rem",marginBottom:12}}>
+        <div style={{fontSize:11,color:"#1565C0",fontWeight:700,marginBottom:4}}>🗓️ 다음 진료</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{textAlign:"center",background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"6px 10px",flexShrink:0}}>
+            <div style={{fontSize:9,color:"#f06292",fontWeight:700}}>{new Date(nextAppt.date).getMonth()+1}월</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#e91e63",lineHeight:1}}>{new Date(nextAppt.date).getDate()}</div>
+          </div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:"#3d2c2c"}}>{nextAppt.purpose}</div>
+            {nextAppt.memo&&<div style={{fontSize:11,color:"#aaa"}}>{nextAppt.memo}</div>}
+          </div>
+          {(()=>{const diff=Math.round((new Date(nextAppt.date)-new Date(today))/86400000);return<div style={{marginLeft:"auto",background:diff===0?"#f06292":diff===1?"#FF7043":"rgba(240,98,146,0.12)",color:diff<=1?"#fff":"#f06292",borderRadius:9,padding:"3px 8px",fontSize:11,fontWeight:700,flexShrink:0}}>{diff===0?"오늘!":diff===1?"내일":`D-${diff}`}</div>;})()}
+        </div>
+      </div>}
+
+      {/* 여정 진행 */}
+      <div className="glass-card" style={{borderRadius:20,padding:"1.2rem",marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+          <span style={{fontSize:13,fontWeight:700,color:"#3d2c2c"}}>🛤️ 임신 여정</span>
+          <span style={{fontSize:12,color:"#9C27B0",fontWeight:700}}>{Math.round((w/40)*100)}%</span>
+        </div>
+        <div style={{background:"rgba(235,220,230,.3)",borderRadius:8,height:12,overflow:"visible",position:"relative",marginBottom:8}}>
+          <div style={{width:`${Math.min(100,(w/40)*100)}%`,height:"100%",background:"linear-gradient(90deg,#CE93D8,#9C27B0)",borderRadius:8,position:"relative"}}>
+            <div style={{position:"absolute",right:-14,top:"50%",transform:"translateY(-50%)",fontSize:18}}>🤰</div>
+          </div>
+          <div style={{position:"absolute",right:-6,top:"50%",transform:"translateY(-60%)",fontSize:16}}>🍼</div>
+        </div>
+        <div style={{textAlign:"center",fontSize:11,color:"#bbb"}}>출산까지 <span style={{color:"#9C27B0",fontWeight:700}}>{40-w}주</span> 남았어요!</div>
+      </div>
+
+      {/* 아기 크기 */}
+      <div className="glass-card" style={{borderRadius:16,padding:"1rem 1.1rem",display:"flex",gap:11,alignItems:"center"}}>
+        <div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#f3e8ff,#e8d5ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>{wd.emoji}</div>
+        <div>
+          <div style={{fontSize:11,color:"#9C27B0",fontWeight:700,marginBottom:1}}>이번 주 아기 크기</div>
+          <div style={{fontSize:15,fontWeight:700,color:"#3d2c2c",marginBottom:1}}>{wd.size} 만해요</div>
+          <div style={{fontSize:11,color:"#999"}}>약 {wd.sizeCm} · {wd.babyDesc}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 가족 탭바 (상단) ────────────────────────────────────────
+function FamilyTabBar({state, activeFamily, setActiveFamily, followingData, onAdd}) {
+  const families = [
+    { code: null, name: state.momName || "우리 가족", emoji: "💕" },
+    ...(state.followingFamilies||[]).map(fc => ({
+      code: fc,
+      name: followingData[fc]?.momName ? `${followingData[fc].momName}네` : fc,
+      emoji: followingData[fc]?.gender==="boy" ? "👦" : followingData[fc]?.gender==="girl" ? "👧" : "🌸",
+    }))
+  ];
+
+  return (
+    <div style={{
+      background:"rgba(255,248,252,0.95)",
+      borderBottom:"1px solid rgba(240,190,215,0.4)",
+      display:"flex", alignItems:"center",
+      overflowX:"auto", padding:"0 4px",
+    }}>
+      {families.map(f=>(
+        <button key={f.code||"mine"} onClick={()=>setActiveFamily(f.code)}
+          style={{
+            flexShrink:0, padding:"9px 14px",
+            border:"none", background:"none", cursor:"pointer",
+            borderBottom: activeFamily===f.code ? "2.5px solid #f06292" : "2.5px solid transparent",
+            color: activeFamily===f.code ? "#e91e63" : "#bbb",
+            fontSize:12, fontWeight: activeFamily===f.code ? 700 : 400,
+            display:"flex", alignItems:"center", gap:4,
+            transition:"all .15s",
+          }}>
+          <span style={{fontSize:14}}>{f.emoji}</span>
+          <span>{f.name}</span>
+          {/* 컨디션 도트 */}
+          {f.code && followingData[f.code] && (()=>{
+            const sev = calcSev(followingData[f.code].conditions||[]);
+            const dotColor = sev>=4?"#E53935":sev>=3?"#FB8C00":sev>=2?"#FFB300":sev>=1?"#7CB342":"#BDBDBD";
+            return <div style={{width:6,height:6,borderRadius:"50%",background:dotColor,flexShrink:0}}/>;
+          })()}
+        </button>
+      ))}
+      {/* + 추가 버튼 */}
+      <button onClick={onAdd} style={{
+        flexShrink:0, padding:"9px 12px",
+        border:"none", background:"none", cursor:"pointer",
+        color:"#f06292", fontSize:18, fontWeight:700,
+      }}>＋</button>
+    </div>
+  );
+}
+
+// ── 가족 추가 모달 ──────────────────────────────────────────
+function AddFamilyModal({onAdd, onClose, existingCodes}) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const add = async () => {
+    if(code.length < 4) { setError('코드를 입력해주세요'); return; }
+    const uc = code.toUpperCase().replace(/[^A-Z0-9-]/g,'');
+    if(existingCodes.includes(uc)) { setError('이미 추가된 가족이에요'); return; }
+    setLoading(true); setError('');
+    try {
+      if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
+        const r = window.firebaseRef(window.firebaseDb, `families/${uc}/pgApp_state`);
+        window.firebaseOnValue(r, (snap)=>{
+          setLoading(false);
+          if(snap.val()) { onAdd(uc); }
+          else { setError('존재하지 않는 코드예요 😢'); }
+        }, {onlyOnce:true});
+      }
+    } catch(e) { setLoading(false); setError('오류가 발생했어요'); }
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:"0 1.5rem"}}>
+      <div style={{background:"#fff",borderRadius:26,padding:"1.8rem 1.6rem",width:"100%",maxWidth:340,boxShadow:"0 20px 60px rgba(0,0,0,.18)"}}>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:36,marginBottom:6}}>👀</div>
+          <div style={{fontSize:17,fontWeight:700,color:"#3d2c2c",marginBottom:3}}>가족 추가하기</div>
+          <div style={{fontSize:11,color:"#aaa",lineHeight:1.6}}>친구한테 받은 가족 코드를 입력하면<br/>친구 가족 상황을 함께 볼 수 있어요!</div>
+        </div>
+        <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
+          placeholder="BABY-XXXX"
+          maxLength={9}
+          style={{width:"100%",padding:"14px",borderRadius:14,border:"2px solid rgba(240,98,146,0.3)",fontSize:18,outline:"none",textAlign:"center",letterSpacing:4,fontWeight:700,color:"#e91e63",marginBottom:8,background:"rgba(255,248,252,0.8)"}}
+        />
+        {error&&<div style={{fontSize:12,color:"#E53935",marginBottom:8,textAlign:"center"}}>{error}</div>}
+        <button onClick={add} disabled={loading}
+          style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#f48fb1,#f06292)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 14px rgba(240,98,146,.25)"}}>
+          {loading?"⏳ 확인 중...":"💕 추가하기"}
+        </button>
+        <button onClick={onClose}
+          style={{width:"100%",padding:"11px",borderRadius:14,border:"none",background:"#f5f5f5",color:"#aaa",fontSize:13,cursor:"pointer"}}>
+          취소
+        </button>
+        <div style={{fontSize:10,color:"#ddd",textAlign:"center",marginTop:10,lineHeight:1.6}}>
+          추가된 가족은 읽기 전용이에요<br/>(수정하려면 PIN이 있어야 해요)
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 가족 코드 진입 화면 (예쁜 버전) ────────────────────────
+function FamilyEntry({onEnter}) {
+  const [mode, setMode] = useState(null);
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generateCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let r = 'BABY-';
+    for(let i=0;i<4;i++) r += chars[Math.floor(Math.random()*chars.length)];
+    return r;
+  };
+
+  const createFamily = async () => {
+    setLoading(true);
+    const newCode = generateCode();
+    try {
+      if(window.firebaseDb && window.firebaseRef) {
+        const { set: fbSet } = await import('firebase/database');
+        const r = window.firebaseRef(window.firebaseDb, `families/${newCode}/pgApp_state`);
+        await fbSet(r, JSON.stringify({
+          week:8, gender:"unknown", dueDate:"", babyName:"", momName:"",
+          conditions:[], pin:"1234", memo:"", foodRatings:{},
+          hospital:null, checkToday:{}, checkDate:"", appointments:[], familyCode:newCode
+        }));
+      }
+    } catch(e) {}
+    setLoading(false);
+    onEnter(newCode);
+  };
+
+  const joinFamily = async () => {
+    if(code.length < 4) { setError('코드를 정확히 입력해주세요'); return; }
+    setLoading(true); setError('');
+    const uc = code.toUpperCase().replace(/[^A-Z0-9-]/g,'');
+    try {
+      if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
+        const r = window.firebaseRef(window.firebaseDb, `families/${uc}/pgApp_state`);
+        window.firebaseOnValue(r, (snap) => {
+          setLoading(false);
+          if(snap.val()) onEnter(uc);
+          else setError('존재하지 않는 코드예요 😢 다시 확인해주세요!');
+        }, { onlyOnce:true });
+      } else { setTimeout(joinFamily, 500); }
+    } catch(e) { setLoading(false); setError('연결 오류예요. 다시 시도해주세요.'); }
+  };
+
+  // 벚꽃 파티클 데이터
+  const petals = Array.from({length:18}, (_,i) => ({
+    id:i,
+    left: Math.random()*100,
+    delay: Math.random()*6,
+    duration: 4 + Math.random()*4,
+    size: 8 + Math.random()*12,
+    emoji: ['🌸','🌺','✿','❀','🌷','💮'][Math.floor(Math.random()*6)],
+  }));
+
+  return (
+    <div style={{
+      fontFamily:"'Jua','Noto Sans KR',sans-serif",
+      maxWidth:430, margin:"0 auto", minHeight:"100vh",
+      position:"relative", overflow:"hidden",
+      background:"linear-gradient(160deg, #fff0f5 0%, #fde8f5 20%, #f5e8ff 45%, #e8f0ff 70%, #e8fff5 100%)",
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap');
+        * { font-family:'Jua','Noto Sans KR',sans-serif; box-sizing:border-box; }
+        @keyframes fall {
+          0%   { transform: translateY(-30px) rotate(0deg) scale(1); opacity:0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 0.7; }
+          100% { transform: translateY(110vh) rotate(360deg) scale(0.6); opacity:0; }
+        }
+        @keyframes sway {
+          0%,100% { margin-left:0px; }
+          50%      { margin-left:30px; }
+        }
+        @keyframes heartbeat {
+          0%,100% { transform: scale(1); }
+          50%      { transform: scale(1.08); }
+        }
+        @keyframes float {
+          0%,100% { transform: translateY(0px); }
+          50%      { transform: translateY(-10px); }
+        }
+        @keyframes shimmer {
+          0%   { opacity:0.4; }
+          50%  { opacity:1; }
+          100% { opacity:0.4; }
+        }
+        .petal {
+          position:fixed; top:-40px; pointer-events:none; z-index:0;
+          animation: fall linear infinite, sway ease-in-out infinite;
+        }
+        .heartbeat { animation: heartbeat 1.8s ease-in-out infinite; }
+        .float-anim { animation: float 3s ease-in-out infinite; }
+        .shimmer { animation: shimmer 2.5s ease-in-out infinite; }
+      `}</style>
+
+      {/* 벚꽃 파티클 */}
+      {petals.map(p=>(
+        <div key={p.id} className="petal" style={{
+          left:`${p.left}%`,
+          fontSize:`${p.size}px`,
+          animationDuration:`${p.duration}s, ${p.duration*1.3}s`,
+          animationDelay:`${p.delay}s`,
+        }}>{p.emoji}</div>
+      ))}
+
+      {/* 배경 빛 번짐 */}
+      <div style={{position:"fixed",top:"-60px",left:"-40px",width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,182,215,0.22) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"fixed",bottom:"-60px",right:"-40px",width:260,height:260,borderRadius:"50%",background:"radial-gradient(circle,rgba(182,210,255,0.18) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"fixed",top:"40%",left:"-30px",width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(200,240,220,0.15) 0%,transparent 70%)",pointerEvents:"none"}}/>
+
+      {/* 메인 콘텐츠 */}
+      <div style={{position:"relative",zIndex:1,width:"100%",padding:"0 1.8rem",display:"flex",flexDirection:"column",alignItems:"center"}}>
+
+        {/* 아기 일러스트 영역 */}
+        <div className="float-anim" style={{marginBottom:20,position:"relative"}}>
+          {/* 빛나는 후광 */}
+          <div className="shimmer" style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,182,215,0.35) 0%,rgba(255,210,235,0.15) 50%,transparent 70%)"}}/>
+          {/* 자궁 원 */}
+          <svg viewBox="0 0 200 200" width={180} height={180}>
+            {/* 외부 빛 링 */}
+            <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,182,215,0.3)" strokeWidth="2" strokeDasharray="8 6"/>
+            {/* 자궁 배경 */}
+            <circle cx="100" cy="100" r="80" fill="rgba(255,240,248,0.7)" stroke="rgba(255,182,215,0.5)" strokeWidth="1.5"/>
+            <circle cx="100" cy="100" r="72" fill="rgba(255,228,240,0.6)"/>
+            {/* 반짝이 별들 */}
+            <text x="28" y="45" fontSize="11" opacity="0.6">✨</text>
+            <text x="155" y="55" fontSize="9" opacity="0.5">⭐</text>
+            <text x="35" y="158" fontSize="9" opacity="0.5">💫</text>
+            <text x="152" y="165" fontSize="11" opacity="0.6">✨</text>
+            {/* 아기 몸통 */}
+            <ellipse cx="102" cy="118" rx="28" ry="22" fill="#FFDDD2"/>
+            {/* 아기 다리 (웅크림) */}
+            <ellipse cx="80" cy="130" rx="14" ry="10" fill="#FFDDD2" transform="rotate(-35 80 130)"/>
+            <ellipse cx="122" cy="130" rx="14" ry="10" fill="#FFDDD2" transform="rotate(35 122 130)"/>
+            {/* 기저귀 */}
+            <ellipse cx="102" cy="120" rx="22" ry="12" fill="#FFF9C4"/>
+            <rect x="80" y="110" width="10" height="7" rx="2" fill="#FFF176"/>
+            <rect x="114" y="110" width="10" height="7" rx="2" fill="#FFF176"/>
+            {/* 작은 손 */}
+            <circle cx="84" cy="112" r="7" fill="#FFDDD2"/>
+            {/* 아기 머리 (크게) */}
+            <circle cx="102" cy="82" r="32" fill="#FFDDD2"/>
+            {/* 귀 */}
+            <ellipse cx="70" cy="82" rx="6" ry="7" fill="#FFDDD2"/>
+            <ellipse cx="134" cy="82" rx="6" ry="7" fill="#FFDDD2"/>
+            {/* 볼터치 */}
+            <ellipse cx="88" cy="87" rx="7" ry="4.5" fill="#F2B8A0" opacity="0.65"/>
+            <ellipse cx="116" cy="87" rx="7" ry="4.5" fill="#F2B8A0" opacity="0.65"/>
+            {/* 눈 (감은) */}
+            <path d="M90 78 Q94 74 98 78" stroke="#5C3D2E" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+            <path d="M106 78 Q110 74 114 78" stroke="#5C3D2E" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+            {/* 코 */}
+            <ellipse cx="102" cy="83" rx="2.5" ry="1.5" fill="#E8A882" opacity="0.5"/>
+            {/* 입 (살짝 웃음) */}
+            <path d="M96 90 Q102 95 108 90" stroke="#D4896A" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+            {/* 탯줄 */}
+            <path d="M102 140 Q112 152 100 162" stroke="#F2B8A0" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.4"/>
+            {/* 하트 */}
+            <text x="88" y="62" fontSize="10" opacity="0.7">💕</text>
+          </svg>
+        </div>
+
+        {/* 타이틀 */}
+        <div className="heartbeat" style={{textAlign:"center",marginBottom:6}}>
+          <div style={{fontSize:30,fontWeight:700,color:"#880e4f",letterSpacing:1,textShadow:"0 2px 8px rgba(240,98,146,0.2)"}}>
+            🌸 Baby Journey
+          </div>
+        </div>
+        <div style={{fontSize:13,color:"#c2185b",marginBottom:6,textAlign:"center",opacity:0.8}}>
+          피어나는 생명, 소중한 여정
+        </div>
+        <div style={{fontSize:11,color:"#aaa",marginBottom:28,textAlign:"center",lineHeight:1.7}}>
+          임산부와 가족을 위한<br/>임신 여정 실시간 공유 앱 💕
+        </div>
+
+        {/* 버튼 영역 */}
+        {!mode && (
+          <div style={{width:"100%",maxWidth:340}}>
+            <button onClick={createFamily} disabled={loading}
+              style={{width:"100%",padding:"17px",borderRadius:22,border:"none",
+                background:"linear-gradient(135deg,#f48fb1 0%,#f06292 50%,#e91e63 100%)",
+                color:"#fff",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",
+                marginBottom:12,boxShadow:"0 6px 20px rgba(240,98,146,.35)",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                transform:"translateY(0)",transition:"transform .15s, box-shadow .15s",
+              }}
+              onMouseOver={e=>{e.target.style.transform="translateY(-2px)";e.target.style.boxShadow="0 8px 24px rgba(240,98,146,.45)";}}
+              onMouseOut={e=>{e.target.style.transform="translateY(0)";e.target.style.boxShadow="0 6px 20px rgba(240,98,146,.35)";}}
+            >
+              {loading ? (
+                <><span style={{fontSize:20}}>⏳</span> 만드는 중...</>
+              ) : (
+                <><span style={{fontSize:22}}>🤰</span> 새 가족 공간 만들기</>
+              )}
+            </button>
+
+            <button onClick={()=>setMode('join')}
+              style={{width:"100%",padding:"17px",borderRadius:22,
+                border:"2px solid rgba(240,98,146,0.35)",
+                background:"rgba(255,255,255,0.75)",
+                backdropFilter:"blur(10px)",
+                color:"#e91e63",fontSize:16,fontWeight:700,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                boxShadow:"0 4px 14px rgba(240,98,146,.1)",
+              }}>
+              <span style={{fontSize:22}}>🔑</span> 가족 코드로 참여하기
+            </button>
+
+            <div style={{display:"flex",alignItems:"center",gap:8,margin:"20px 0 0"}}>
+              <div style={{flex:1,height:1,background:"rgba(240,98,146,0.15)"}}/>
+              <div style={{fontSize:11,color:"#ddd",whiteSpace:"nowrap"}}>처음이세요?</div>
+              <div style={{flex:1,height:1,background:"rgba(240,98,146,0.15)"}}/>
+            </div>
+            <div style={{textAlign:"center",fontSize:11,color:"#ccc",marginTop:8,lineHeight:1.8}}>
+              임산부(엄마)가 먼저 <b style={{color:"#f06292"}}>새 가족 공간 만들기</b>로<br/>
+              공간을 만든 후 가족들에게 코드를 공유해주세요
+            </div>
+          </div>
+        )}
+
+        {/* 코드 입력 화면 */}
+        {mode==='join' && (
+          <div style={{width:"100%",maxWidth:340}}>
+            <div style={{
+              background:"rgba(255,255,255,0.82)",
+              backdropFilter:"blur(16px)",
+              borderRadius:24,padding:"1.6rem",
+              border:"1px solid rgba(255,200,225,0.5)",
+              boxShadow:"0 4px 20px rgba(240,98,146,.1)",
+            }}>
+              <div style={{textAlign:"center",marginBottom:16}}>
+                <div style={{fontSize:32,marginBottom:6}}>🔑</div>
+                <div style={{fontSize:16,fontWeight:700,color:"#3d2c2c",marginBottom:3}}>가족 코드 입력</div>
+                <div style={{fontSize:11,color:"#aaa"}}>엄마한테 받은 코드를 입력하세요</div>
+              </div>
+              <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
+                placeholder="BABY-XXXX"
+                maxLength={9}
+                style={{width:"100%",padding:"15px",borderRadius:14,
+                  border:"2px solid rgba(240,98,146,0.3)",
+                  fontSize:20,outline:"none",textAlign:"center",
+                  letterSpacing:4,fontWeight:700,color:"#e91e63",
+                  marginBottom:10,background:"rgba(255,248,252,0.8)",
+                }}
+              />
+              {error&&<div style={{fontSize:12,color:"#E53935",marginBottom:10,textAlign:"center",lineHeight:1.5}}>{error}</div>}
+              <button onClick={joinFamily} disabled={loading}
+                style={{width:"100%",padding:"14px",borderRadius:14,border:"none",
+                  background:loading?"#f8bbd0":"linear-gradient(135deg,#f48fb1,#f06292)",
+                  color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"default":"pointer",
+                  marginBottom:9,boxShadow:"0 4px 14px rgba(240,98,146,.25)",
+                }}>
+                {loading?"⏳ 확인 중...":"💕 참여하기"}
+              </button>
+              <button onClick={()=>{setMode(null);setError('');setCode('');}}
+                style={{width:"100%",padding:"11px",borderRadius:14,border:"none",
+                  background:"rgba(245,245,245,0.8)",color:"#bbb",fontSize:13,cursor:"pointer",
+                }}>
+                ← 뒤로
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── PIN 모달 ──────────────────────────────────────────────────
 function PinModal({onSuccess,onClose,gender}) {
@@ -1601,24 +2092,28 @@ export default function App() {
   const [state,setState]=useState(DEFAULT);
   const [tab,setTab]=useState("home");
   const [showPin,setShowPin]=useState(false);
-  // ── Firebase 실시간 구독 ─────────────────────────────────
+  const [activeFamily,setActiveFamily]=useState(null); // null = 내 가족, string = 팔로잉 코드
+  const [followingData,setFollowingData]=useState({}); // {코드: 데이터}
+  const [showAddFamily,setShowAddFamily]=useState(false); // + 탭 모달
+  // ── Firebase 실시간 구독 (familyCode 기반) ───────────────────
   useEffect(()=>{
-    // 상태 실시간 구독
+    if(!state.familyCode) return; // 코드 없으면 구독 안 함
     let unsubState = null;
     let unsubPhotos = null;
     const subscribe = () => {
       if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
-        const stateRef = window.firebaseRef(window.firebaseDb, "shared/pgApp_state");
+        const base = `families/${state.familyCode}`;
+        const stateRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_state`);
         unsubState = window.firebaseOnValue(stateRef, (snapshot) => {
           const value = snapshot.val();
           if(value) {
             try {
               const parsed = JSON.parse(value);
-              setState(p=>({...p,...parsed,isUnlocked:p.isUnlocked}));
+              setState(p=>({...p,...parsed,isUnlocked:p.isUnlocked,familyCode:p.familyCode}));
             } catch(e) {}
           }
         });
-        const photosRef = window.firebaseRef(window.firebaseDb, "shared/pgApp_photos");
+        const photosRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_photos`);
         unsubPhotos = window.firebaseOnValue(photosRef, (snapshot) => {
           const value = snapshot.val();
           if(value) {
@@ -1629,7 +2124,6 @@ export default function App() {
           }
         });
       } else {
-        // Firebase 로드 전 재시도
         setTimeout(subscribe, 500);
       }
     };
@@ -1638,34 +2132,66 @@ export default function App() {
       if(unsubState) unsubState();
       if(unsubPhotos) unsubPhotos();
     };
-  }, []);
+  }, [state.familyCode]);
+
+  // ── 팔로잉 가족들 실시간 구독 ────────────────────────────
+  useEffect(()=>{
+    if(!state.followingFamilies?.length) return;
+    const unsubs = [];
+    state.followingFamilies.forEach(fc=>{
+      if(!window.firebaseDb || !window.firebaseRef || !window.firebaseOnValue) return;
+      const r = window.firebaseRef(window.firebaseDb, `families/${fc}/pgApp_state`);
+      const unsub = window.firebaseOnValue(r, (snap)=>{
+        const val = snap.val();
+        if(val) {
+          try {
+            const parsed = JSON.parse(val);
+            setFollowingData(p=>({...p, [fc]: parsed}));
+          } catch(e) {}
+        }
+      });
+      unsubs.push(unsub);
+    });
+    return () => unsubs.forEach(u=>u&&u());
+  }, [state.followingFamilies]);
   const save = async (u) => {
     const nx = {...state, ...u};
     setState(nx);
+    if(!nx.familyCode) return; // 코드 없으면 저장 안 함
     const {isUnlocked, photos, ...s} = nx;
-    // 일반 데이터 저장 (공유)
+    const base = `families/${nx.familyCode}`;
     try {
-      await window.storage.set("pgApp_state", JSON.stringify(s), true);
-    } catch(e) { console.warn("저장 실패", e); }
-    // 사진 저장 (공유, 별도 키)
-    try {
-      if(photos !== undefined) {
-        await window.storage.set("pgApp_photos", JSON.stringify(photos), true);
+      if(window.firebaseDb && window.firebaseRef) {
+        const { set: fbSet } = await import('firebase/database');
+        const stateRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_state`);
+        await fbSet(stateRef, JSON.stringify(s));
       }
-    } catch(e) { console.warn("사진 저장 실패 - 용량 초과 가능"); }
+    } catch(e) { console.warn("저장 실패", e); }
+    try {
+      if(photos !== undefined && window.firebaseDb && window.firebaseRef) {
+        const { set: fbSet } = await import('firebase/database');
+        const photosRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_photos`);
+        await fbSet(photosRef, JSON.stringify(photos));
+      }
+    } catch(e) { console.warn("사진 저장 실패"); }
   };
   const TABS=[{id:"home",label:"홈",emoji:"🏠"},{id:"week",label:"주수",emoji:"📅"},{id:"food",label:"음식",emoji:"🥗"},{id:"care",label:"케어",emoji:"🏥"},{id:"photo",label:"사진",emoji:"📸"},{id:"settings",label:"편집",emoji:"✏️"}];
   const g=state.gender||"unknown";
+  // 가족 코드 없으면 진입 화면 표시
+  if(!state.familyCode) {
+    return <FamilyEntry onEnter={(code)=>setState(p=>({...p,familyCode:code}))}/>;
+  }
+
   return (
     <div className="app-bg" style={{fontFamily:"'Jua','Noto Sans KR',sans-serif",maxWidth:430,margin:"0 auto",minHeight:"100vh",display:"flex",flexDirection:"column",position:"relative"}}>
       <div className="deco-circle-1"/>
       <div className="deco-circle-2"/>
       <div className="deco-circle-3"/>
       <style>{fontStyle}</style>
-      {/* 실시간 동기화 안내 - 첫 방문시 */}
-      <div style={{background:"rgba(240,249,255,0.9)",borderBottom:"1px solid rgba(180,220,255,0.4)",padding:"6px 14px",display:"flex",alignItems:"center",gap:6,fontSize:10,color:"#1565C0"}}>
-        <span style={{fontSize:12}}>🔄</span>
-        <span>실시간 공유 중 · 엄마가 저장하면 가족들 화면에 바로 반영돼요</span>
+      {/* 실시간 동기화 안내 */}
+      <div style={{background:"rgba(240,249,255,0.9)",borderBottom:"1px solid rgba(180,220,255,0.4)",padding:"5px 14px",display:"flex",alignItems:"center",gap:6,fontSize:10,color:"#1565C0"}}>
+        <span style={{fontSize:11}}>🔄</span>
+        <span>실시간 공유 중 · 엄마가 저장하면 바로 반영돼요</span>
       </div>
       <div style={{background:"rgba(255,248,252,0.88)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(240,215,228,0.45)",padding:"0.8rem 1.1rem",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50}}>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
@@ -1673,13 +2199,43 @@ export default function App() {
           <span style={{fontSize:16,fontWeight:700,color:"#880e4f"}}>Baby Journey</span>
         </div>
         <div style={{display:"flex",gap:7,alignItems:"center"}}>
-          {/* 헤더에 미니 아기 아이콘 성별 표시 */}
           {g==="boy"&&<div style={{background:"#E3F2FD",borderRadius:12,padding:"2px 8px",fontSize:11,color:"#1565C0",fontWeight:700}}>👦 아들</div>}
           {g==="girl"&&<div style={{background:"#FCE4EC",borderRadius:12,padding:"2px 8px",fontSize:11,color:"#C2185B",fontWeight:700}}>👧 딸</div>}
           <div style={{background:"rgba(255,255,255,.65)",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700}}>{state.week}주차</div>
+          {/* 가족 코드 공유 버튼 */}
+          <button onClick={()=>{
+            const msg = `🌸 Baby Journey 임신 앱\n\n가족 코드: ${state.familyCode}\n링크: ${window.location.href}\n\n코드 입력하면 바로 볼 수 있어요!`;
+            if(navigator.share) navigator.share({title:'Baby Journey',text:msg});
+            else { navigator.clipboard.writeText(msg); alert('공유 내용이 복사됐어요! 카톡에 붙여넣기 하세요 💕'); }
+          }} style={{background:"rgba(255,255,255,.65)",border:"none",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700,cursor:"pointer"}}>
+            공유 📤
+          </button>
+          <button onClick={()=>setShowAddFamily(true)} style={{background:"rgba(255,255,255,.65)",border:"none",borderRadius:18,padding:"3px 10px",fontSize:14,color:"#f06292",fontWeight:700,cursor:"pointer"}}>
+            ＋
+          </button>
         </div>
       </div>
+      {/* 가족 탭바 - 팔로잉 가족 있을 때만 표시 */}
+      {(state.followingFamilies?.length > 0) && (
+        <FamilyTabBar
+          state={state}
+          activeFamily={activeFamily}
+          setActiveFamily={(code)=>{ setActiveFamily(code); setTab("home"); }}
+          followingData={followingData}
+          onAdd={()=>setShowAddFamily(true)}
+        />
+      )}
+
       <div style={{flex:1,padding:".9rem .9rem 5.5rem",overflowY:"auto"}}>
+        {/* 팔로잉 가족 보기 모드 */}
+        {activeFamily && followingData[activeFamily] ? (
+          <FollowingView
+            data={followingData[activeFamily]}
+            code={activeFamily}
+            onBack={()=>setActiveFamily(null)}
+          />
+        ) : (
+          <>
         {tab==="home"&&<HomeTab state={state}/>}
         {tab==="week"&&<WeekTab state={state}/>}
         {tab==="food"&&<FoodTab state={state} onUpdate={save}/>}
@@ -1687,6 +2243,8 @@ export default function App() {
         {tab==="photo"&&<PhotoTab state={state} onUpdate={save}/>}
         {tab==="settings"&&state.isUnlocked&&<SettingsTab state={state} onUpdate={save} onLock={()=>{setState(p=>({...p,isUnlocked:false}));setTab("home");}}/>}
         {tab==="settings"&&!state.isUnlocked&&<div style={{textAlign:"center",paddingTop:"5rem"}}><BabySleeping size={100} gender={g}/><div style={{fontSize:15,color:"#bbb",marginTop:8}}>엄마 전용 편집 모드예요</div></div>}
+          </>
+        )}
       </div>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(255,250,253,0.94)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid rgba(235,210,222,0.4)",display:"flex",padding:".45rem 0 .8rem",zIndex:100}}>
         {TABS.map(t=>(
@@ -1699,6 +2257,17 @@ export default function App() {
         ))}
       </div>
       {showPin&&<PinModal onSuccess={()=>{setShowPin(false);setState(p=>({...p,isUnlocked:true}));setTab("settings");}} onClose={()=>setShowPin(false)} gender={g}/>}
+      {showAddFamily&&<AddFamilyModal
+        existingCodes={state.followingFamilies||[]}
+        onAdd={(code)=>{
+          const updated = [...(state.followingFamilies||[]), code];
+          save({followingFamilies: updated});
+          setShowAddFamily(false);
+          setActiveFamily(code);
+          setTab("home");
+        }}
+        onClose={()=>setShowAddFamily(false)}
+      />}
     </div>
   );
 }
