@@ -1012,7 +1012,7 @@ function FamilyEntry({onEnter}) {
           100% { opacity:0.4; }
         }
         .petal {
-          position:fixed; top:-40px; pointer-events:none; z-index:0;
+          position:fixed; top:-40px; pointer-events:none !important; z-index:0;
           animation: fall linear infinite, sway ease-in-out infinite;
         }
         .heartbeat { animation: heartbeat 1.8s ease-in-out infinite; }
@@ -1031,12 +1031,12 @@ function FamilyEntry({onEnter}) {
       ))}
 
       {/* 배경 빛 번짐 */}
-      <div style={{position:"fixed",top:"-60px",left:"-40px",width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,182,215,0.22) 0%,transparent 70%)",pointerEvents:"none"}}/>
-      <div style={{position:"fixed",bottom:"-60px",right:"-40px",width:260,height:260,borderRadius:"50%",background:"radial-gradient(circle,rgba(182,210,255,0.18) 0%,transparent 70%)",pointerEvents:"none"}}/>
-      <div style={{position:"fixed",top:"40%",left:"-30px",width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(200,240,220,0.15) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"fixed",top:"-60px",left:"-40px",width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,rgba(255,182,215,0.22) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
+      <div style={{position:"fixed",bottom:"-60px",right:"-40px",width:260,height:260,borderRadius:"50%",background:"radial-gradient(circle,rgba(182,210,255,0.18) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
+      <div style={{position:"fixed",top:"40%",left:"-30px",width:200,height:200,borderRadius:"50%",background:"radial-gradient(circle,rgba(200,240,220,0.15) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
       {/* 메인 콘텐츠 */}
-      <div style={{position:"relative",zIndex:1,width:"100%",padding:"0 1.8rem",display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{position:"relative",zIndex:10,width:"100%",padding:"0 1.8rem",display:"flex",flexDirection:"column",alignItems:"center"}}>
 
         {/* 아기 일러스트 영역 */}
         <div className="float-anim" style={{marginBottom:20,position:"relative"}}>
@@ -1133,6 +1133,41 @@ function FamilyEntry({onEnter}) {
             <div style={{textAlign:"center",fontSize:11,color:"#ccc",marginTop:8,lineHeight:1.8}}>
               임산부(엄마)가 먼저 <b style={{color:"#f06292"}}>새 가족 공간 만들기</b>로<br/>
               공간을 만든 후 가족들에게 코드를 공유해주세요
+            </div>
+          </div>
+        )}
+
+        {/* 비밀번호 설정 화면 */}
+        {setupStep==='password' && (
+          <div style={{width:"100%",maxWidth:340}}>
+            <div style={{background:"rgba(255,255,255,0.82)",backdropFilter:"blur(16px)",borderRadius:24,padding:"1.6rem",border:"1px solid rgba(255,200,225,0.5)",boxShadow:"0 4px 20px rgba(240,98,146,.1)"}}>
+              <div style={{textAlign:"center",marginBottom:16}}>
+                <div style={{fontSize:32,marginBottom:6}}>🔐</div>
+                <div style={{fontSize:16,fontWeight:700,color:"#3d2c2c",marginBottom:3}}>비밀번호 설정</div>
+                <div style={{fontSize:11,color:"#aaa",lineHeight:1.6}}>편집할 때 사용할 비밀번호를<br/>숫자 4자리로 설정해주세요</div>
+              </div>
+              <div style={{background:"rgba(255,240,248,0.7)",borderRadius:12,padding:"8px 12px",marginBottom:14,textAlign:"center",border:"1px solid rgba(240,98,146,0.2)"}}>
+                <div style={{fontSize:10,color:"#aaa",marginBottom:2}}>내 가족 코드</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#e91e63",letterSpacing:3}}>{newCode}</div>
+                <div style={{fontSize:9,color:"#ccc",marginTop:1}}>비밀번호 설정 후 가족들과 공유하세요</div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:"#888",marginBottom:5}}>비밀번호 (숫자 4자리)</div>
+                <input type="password" value={password} onChange={e=>setPassword(e.target.value.slice(0,4))} placeholder="예: 1004" maxLength={4}
+                  style={{width:"100%",padding:"13px",borderRadius:12,border:"2px solid rgba(240,98,146,0.3)",fontSize:20,outline:"none",textAlign:"center",letterSpacing:6,fontWeight:700,color:"#e91e63",background:"rgba(255,248,252,0.8)"}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:"#888",marginBottom:5}}>비밀번호 확인</div>
+                <input type="password" value={password2} onChange={e=>{setPassword2(e.target.value.slice(0,4));setPwError('');}} placeholder="한 번 더 입력" maxLength={4}
+                  style={{width:"100%",padding:"13px",borderRadius:12,border:`2px solid ${pwError?"#E53935":"rgba(240,98,146,0.3)"}`,fontSize:20,outline:"none",textAlign:"center",letterSpacing:6,fontWeight:700,color:"#e91e63",background:"rgba(255,248,252,0.8)"}}/>
+              </div>
+              {pwError&&<div style={{fontSize:12,color:"#E53935",marginBottom:10,textAlign:"center"}}>{pwError}</div>}
+              <button onClick={createFamily} disabled={loading}
+                style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:loading?"#f8bbd0":"linear-gradient(135deg,#f48fb1,#f06292)",color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"default":"pointer",marginBottom:8,boxShadow:"0 4px 14px rgba(240,98,146,.25)"}}>
+                {loading?"⏳ 만드는 중...":"✅ 완료! 가족 공간 만들기"}
+              </button>
+              <button onClick={()=>{setSetupStep(null);setPassword('');setPassword2('');setPwError('');}}
+                style={{width:"100%",padding:"11px",borderRadius:14,border:"none",background:"rgba(245,245,245,0.8)",color:"#bbb",fontSize:13,cursor:"pointer"}}>← 뒤로</button>
             </div>
           </div>
         )}
