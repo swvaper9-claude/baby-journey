@@ -2798,9 +2798,7 @@ ${shareUrl}
 
 (가족 코드: ${state.familyCode})`;
             if(navigator.share) navigator.share({title:'Baby Journey 🌸', text:msg, url:shareUrl});
-            else { navigator.clipboard.writeText(msg); alert('링크가 복사됐어요! 카톡에 붙여넣기 하세요 💕
-
-링크만 누르면 바로 입장돼요!'); }
+            else { navigator.clipboard.writeText(msg); alert('링크가 복사됐어요! 카톡에 붙여넣기 하세요 💕\n\n링크만 누르면 바로 입장돼요!'); }
           }} style={{background:"rgba(255,255,255,.65)",border:"none",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700,cursor:"pointer"}}>
             공유 📤
           </button>
