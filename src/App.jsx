@@ -895,7 +895,7 @@ function AddFamilyModal({onAdd, onClose, existingCodes}) {
           취소
         </button>
         <div style={{fontSize:10,color:"#ddd",textAlign:"center",marginTop:10,lineHeight:1.6}}>
-          추가된 가족은 읽기 전용이에요<br/>(수정하려면 PIN이 있어야 해요)
+          추가된 가족은 읽기 전용이에요<br/>(수정하려면 비밀번호가 있어야 해요)
         </div>
       </div>
     </div>
@@ -950,6 +950,8 @@ function FamilyEntry({onEnter}) {
     setLoading(false);
     onEnter(newCode);
   };
+
+  // joinFamily onEnter 후 처리는 onEnter 콜백에서 함
 
   const joinFamily = async () => {
     if(code.length < 4) { setError('코드를 정확히 입력해주세요'); return; }
@@ -1779,10 +1781,16 @@ function CautionSection({sec}) {
 // ── 케어 탭 ───────────────────────────────────────────────────
 function CareTab({state,onUpdate}) {
   const [q,setQ]=useState("");
+  const [region,setRegion]=useState("");
   const [showSearch,setShowSearch]=useState(false);
   const g=state.gender||"unknown";
-  const openNaverMap=(keyword)=>window.open(`https://map.naver.com/v5/search/${encodeURIComponent(keyword)}산부인과`,"_blank");
-  const registerHospital=()=>{if(!q.trim())return;onUpdate({hospital:{name:q.trim(),naverQuery:q.trim()}});setQ("");setShowSearch(false);};
+  const openNaverMap=(keyword)=>window.open(`https://map.naver.com/v5/search/${encodeURIComponent(keyword)}`,"_blank");
+  const registerHospital=()=>{
+    if(!q.trim()) return;
+    const searchQuery = region.trim() ? `${q.trim()} ${region.trim()}` : q.trim();
+    onUpdate({hospital:{name:q.trim(), region:region.trim(), naverQuery:searchQuery}});
+    setQ(""); setRegion(""); setShowSearch(false);
+  };
   const today=new Date().toDateString();
   const checked=state.checkDate===today?(state.checkToday||{}):{};
   const toggle=id=>{const n={...checked,[id]:!checked[id]};onUpdate({checkToday:n,checkDate:today});};
@@ -1827,27 +1835,35 @@ function CareTab({state,onUpdate}) {
                 3️⃣ ✅ 버튼으로 이 앱에 등록
               </div>
             </div>
-            <div style={{position:"relative",marginBottom:10}}>
+            {/* 병원명 */}
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:11,color:"#888",marginBottom:4}}>🏥 병원명</div>
               <input value={q} onChange={e=>setQ(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&q.trim()&&openNaverMap(q)}
-                placeholder="병원명 입력 (예: 미즈메디 산부인과)"
-                style={{width:"100%",padding:"12px 50px 12px 14px",borderRadius:13,border:"1.5px solid #BBDEFB",fontSize:13,outline:"none",color:"#3d2c2c",background:"#F8FBFF"}}/>
-              {q.trim()&&(
-                <button onClick={()=>openNaverMap(q)}
-                  style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"#03C75A",border:"none",borderRadius:9,width:34,height:34,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  🔍
-                </button>
-              )}
+                placeholder="예: 더블유여성병원"
+                style={{width:"100%",padding:"12px 14px",borderRadius:13,border:"1.5px solid #BBDEFB",fontSize:13,outline:"none",color:"#3d2c2c",background:"#F8FBFF"}}/>
             </div>
+            {/* 지역 */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:"#888",marginBottom:4}}>📍 지역 (시·구까지 입력)</div>
+              <input value={region} onChange={e=>setRegion(e.target.value)}
+                placeholder="예: 광주 광산구"
+                style={{width:"100%",padding:"12px 14px",borderRadius:13,border:"1.5px solid #BBDEFB",fontSize:13,outline:"none",color:"#3d2c2c",background:"#F8FBFF"}}/>
+            </div>
+            {/* 검색어 미리보기 */}
+            {q.trim()&&region.trim()&&(
+              <div style={{background:"rgba(240,249,255,0.8)",borderRadius:10,padding:"7px 12px",marginBottom:10,fontSize:11,color:"#1565C0"}}>
+                🔍 검색어: <b>"{q.trim()} {region.trim()}"</b>
+              </div>
+            )}
             {q.trim()&&(
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>openNaverMap(q)}
+                <button onClick={()=>openNaverMap(region.trim()?`${q.trim()} ${region.trim()}`:q.trim())}
                   style={{flex:1,padding:"11px 0",borderRadius:12,border:"none",background:"#03C75A",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-                  <span>🗺️</span> 네이버 지도 확인
+                  <span>🗺️</span> 지도 확인
                 </button>
                 <button onClick={registerHospital}
                   style={{flex:1,padding:"11px 0",borderRadius:12,border:"2px solid #1565C0",background:"#E3F2FD",color:"#1565C0",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-                  <span>✅</span> 앱에 등록
+                  <span>✅</span> 등록
                 </button>
               </div>
             )}
@@ -2078,12 +2094,31 @@ function SettingsTab({state,onUpdate,onLock}) {
       </div>
       <div className="glass-card" style={{borderRadius:20,padding:"1.2rem",marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:"#f06292",marginBottom:11}}>📋 기본 정보</div>
-        {[{label:"엄마 이름",key:"momName",type:"text",ph:"예: 김지은"},{label:"아기 태명",key:"babyName",type:"text",ph:"예: 콩이"},{label:"현재 주수",key:"week",type:"number",ph:"16"},{label:"출산 예정일",key:"dueDate",type:"date",ph:""}].map(f=>(
+        {[{label:"엄마 이름",key:"momName",type:"text",ph:"예: 김지은"},{label:"아기 태명",key:"babyName",type:"text",ph:"예: 콩이"},{label:"현재 주수 (출산예정일 입력 시 자동)",key:"week",type:"number",ph:"16"},{label:"출산 예정일",key:"dueDate",type:"date",ph:""}].map(f=>(
           <div key={f.key} style={{marginBottom:11}}>
             <div style={{fontSize:11,color:"#999",marginBottom:4}}>{f.label}</div>
             <input type={f.type} value={form[f.key]||""} placeholder={f.ph}
-              onChange={e=>setForm(p=>({...p,[f.key]:f.type==="number"?Number(e.target.value):e.target.value}))}
+              onChange={e=>{
+                const val = f.type==="number"?Number(e.target.value):e.target.value;
+                // 출산예정일 입력 시 주수 자동 계산
+                if(f.key==="dueDate" && val) {
+                  const dueDate = new Date(val);
+                  const today = new Date();
+                  const diffMs = dueDate - today;
+                  const weeksLeft = Math.round(diffMs / (7*24*60*60*1000));
+                  const currentWeek = Math.max(1, Math.min(40, 40 - weeksLeft));
+                  setForm(p=>({...p, dueDate:val, week:currentWeek}));
+                } else {
+                  setForm(p=>({...p,[f.key]:val}));
+                }
+              }}
               style={{width:"100%",padding:"11px 13px",borderRadius:11,border:"1.5px solid #f8bbd0",fontSize:13,outline:"none",color:"#3d2c2c"}}/>
+            {/* 출산예정일 입력 시 자동계산 안내 */}
+            {f.key==="dueDate" && form.dueDate && (
+              <div style={{fontSize:11,color:"#f06292",marginTop:4}}>
+                📅 현재 주수 자동계산: <b>{form.week}주차</b>
+              </div>
+            )}
           </div>
         ))}
         {/* 성별 선택 - 미리보기 포함 */}
@@ -2139,6 +2174,21 @@ export default function App() {
   const [activeFamily,setActiveFamily]=useState(null); // null = 내 가족, string = 팔로잉 코드
   const [followingData,setFollowingData]=useState({}); // {코드: 데이터}
   const [showAddFamily,setShowAddFamily]=useState(false); // + 탭 모달
+  // ── 앱 시작 시 코드 복구 (URL → localStorage → 없으면 입력) ──
+  useEffect(()=>{
+    // 1순위: URL 파라미터에서 코드 읽기
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCode = urlParams.get('code');
+    // 2순위: localStorage에서 코드 읽기
+    const savedCode = localStorage.getItem('pgApp_familyCode');
+    const code = urlCode || savedCode;
+    if(code && !state.familyCode) {
+      // localStorage에도 저장 (백업)
+      localStorage.setItem('pgApp_familyCode', code);
+      setState(p=>({...p, familyCode:code}));
+    }
+  }, []);
+
   // ── Firebase 실시간 구독 (familyCode 기반) ───────────────────
   useEffect(()=>{
     if(!state.familyCode) return; // 코드 없으면 구독 안 함
@@ -2201,7 +2251,12 @@ export default function App() {
   const save = async (u) => {
     const nx = {...state, ...u};
     setState(nx);
-    if(!nx.familyCode) return; // 코드 없으면 저장 안 함
+    if(!nx.familyCode) return;
+    // localStorage + URL 항상 최신 코드 유지
+    localStorage.setItem('pgApp_familyCode', nx.familyCode);
+    const url = new URL(window.location.href);
+    url.searchParams.set('code', nx.familyCode);
+    window.history.replaceState({}, '', url.toString());
     const {isUnlocked, photos, ...s} = nx;
     const base = `families/${nx.familyCode}`;
     try {
@@ -2223,7 +2278,15 @@ export default function App() {
   const g=state.gender||"unknown";
   // 가족 코드 없으면 진입 화면 표시
   if(!state.familyCode) {
-    return <FamilyEntry onEnter={(code)=>setState(p=>({...p,familyCode:code}))}/>;
+    return <FamilyEntry onEnter={(code)=>{
+      // localStorage에 저장 (아이폰 뒤로가기 대비)
+      localStorage.setItem('pgApp_familyCode', code);
+      // URL에 코드 추가 (가장 안전한 방법)
+      const url = new URL(window.location.href);
+      url.searchParams.set('code', code);
+      window.history.replaceState({}, '', url.toString());
+      setState(p=>({...p,familyCode:code}));
+    }}/>;
   }
 
   return (
@@ -2232,10 +2295,24 @@ export default function App() {
       <div className="deco-circle-2"/>
       <div className="deco-circle-3"/>
       <style>{fontStyle}</style>
-      {/* 실시간 동기화 안내 */}
-      <div style={{background:"rgba(240,249,255,0.9)",borderBottom:"1px solid rgba(180,220,255,0.4)",padding:"5px 14px",display:"flex",alignItems:"center",gap:6,fontSize:10,color:"#1565C0"}}>
-        <span style={{fontSize:11}}>🔄</span>
-        <span>실시간 공유 중 · 엄마가 저장하면 바로 반영돼요</span>
+      {/* 상단 정보바 - 코드 + 실시간 */}
+      <div style={{background:"rgba(240,249,255,0.9)",borderBottom:"1px solid rgba(180,220,255,0.4)",padding:"5px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:10,color:"#1565C0"}}>
+          <span style={{fontSize:11}}>🔄</span>
+          <span>실시간 공유 중</span>
+        </div>
+        {/* 내 가족 코드 표시 + 복사 */}
+        <button onClick={()=>{
+          navigator.clipboard.writeText(state.familyCode).then(()=>alert(`코드가 복사됐어요! 💕
+
+${state.familyCode}
+
+카톡에 붙여넣기 하세요`)).catch(()=>alert(`내 가족 코드: ${state.familyCode}`));
+        }} style={{display:"flex",alignItems:"center",gap:4,background:"rgba(255,255,255,0.7)",border:"1px solid rgba(240,98,146,0.25)",borderRadius:10,padding:"3px 9px",cursor:"pointer",fontSize:11,color:"#e91e63",fontWeight:700}}>
+          <span style={{fontSize:10}}>🔑</span>
+          <span>{state.familyCode}</span>
+          <span style={{fontSize:10,color:"#f48fb1"}}>📋</span>
+        </button>
       </div>
       <div style={{background:"rgba(255,248,252,0.88)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid rgba(240,215,228,0.45)",padding:"0.8rem 1.1rem",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50}}>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
@@ -2248,9 +2325,18 @@ export default function App() {
           <div style={{background:"rgba(255,255,255,.65)",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700}}>{state.week}주차</div>
           {/* 가족 코드 공유 버튼 */}
           <button onClick={()=>{
-            const msg = `🌸 Baby Journey 임신 앱\n\n가족 코드: ${state.familyCode}\n링크: ${window.location.href}\n\n코드 입력하면 바로 볼 수 있어요!`;
-            if(navigator.share) navigator.share({title:'Baby Journey',text:msg});
-            else { navigator.clipboard.writeText(msg); alert('공유 내용이 복사됐어요! 카톡에 붙여넣기 하세요 💕'); }
+            // 코드 포함된 URL 생성 (링크만 눌러도 바로 입장)
+            const shareUrl = `${window.location.origin}${window.location.pathname}?code=${state.familyCode}`;
+            const msg = `🌸 Baby Journey 임신 앱
+
+아래 링크를 누르면 바로 입장돼요!
+${shareUrl}
+
+(가족 코드: ${state.familyCode})`;
+            if(navigator.share) navigator.share({title:'Baby Journey 🌸', text:msg, url:shareUrl});
+            else { navigator.clipboard.writeText(msg); alert('링크가 복사됐어요! 카톡에 붙여넣기 하세요 💕
+
+링크만 누르면 바로 입장돼요!'); }
           }} style={{background:"rgba(255,255,255,.65)",border:"none",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700,cursor:"pointer"}}>
             공유 📤
           </button>
