@@ -916,7 +916,7 @@ function FamilyEntry({onEnter}) {
     return r;
   };
 
-  const [setupStep, setSetupStep] = useState(null); // null | 'password'
+  const [setupStep, setSetupStep] = useState(null); // null | 'password' | 'done'
   const [newCode, setNewCode] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -948,7 +948,7 @@ function FamilyEntry({onEnter}) {
       }
     } catch(e) {}
     setLoading(false);
-    onEnter(newCode);
+    setSetupStep('done'); // 완료 화면으로
   };
 
   // joinFamily onEnter 후 처리는 onEnter 콜백에서 함
@@ -1170,6 +1170,81 @@ function FamilyEntry({onEnter}) {
               </button>
               <button onClick={()=>{setSetupStep(null);setPassword('');setPassword2('');setPwError('');}}
                 style={{width:"100%",padding:"11px",borderRadius:14,border:"none",background:"rgba(245,245,245,0.8)",color:"#bbb",fontSize:13,cursor:"pointer"}}>← 뒤로</button>
+            </div>
+          </div>
+        )}
+
+        {/* 완료 - 코드 저장 안내 화면 */}
+        {setupStep==='done' && (
+          <div style={{width:"100%",maxWidth:340}}>
+            <div style={{
+              background:"rgba(255,255,255,0.88)",backdropFilter:"blur(16px)",
+              borderRadius:24,padding:"1.8rem 1.6rem",
+              border:"1px solid rgba(255,200,225,0.5)",
+              boxShadow:"0 4px 20px rgba(240,98,146,.12)",
+              textAlign:"center"
+            }}>
+              <div style={{fontSize:40,marginBottom:8}}>🎉</div>
+              <div style={{fontFamily:"'Jua',sans-serif",fontSize:17,color:"#880e4f",marginBottom:6}}>
+                가족 공간이 만들어졌어요!
+              </div>
+              <div style={{fontSize:12,color:"#aaa",marginBottom:16,lineHeight:1.6}}>
+                아래 코드를 꼭 저장해두세요!<br/>
+                나중에 다시 입장할 때 필요해요
+              </div>
+
+              {/* 코드 박스 */}
+              <div style={{
+                background:"linear-gradient(135deg,rgba(255,230,240,0.8),rgba(255,210,230,0.7))",
+                borderRadius:18,padding:"16px",marginBottom:16,
+                border:"2px solid rgba(240,98,146,0.25)"
+              }}>
+                <div style={{fontSize:11,color:"#aaa",marginBottom:6}}>내 가족 코드</div>
+                <div style={{fontFamily:"'Jua',sans-serif",fontSize:26,color:"#e91e63",letterSpacing:4,marginBottom:8}}>
+                  {newCode}
+                </div>
+                <div style={{fontSize:11,color:"#c2185b",lineHeight:1.6}}>
+                  📌 이 코드를 카톡 "나에게 보내기"로<br/>저장해두세요!
+                </div>
+              </div>
+
+              {/* 카톡 저장 버튼 */}
+              <button onClick={()=>{
+                const msg = `🌸 Baby Journey 가족 코드
+
+내 가족 코드: ${newCode}
+
+앱 링크: ${window.location.origin}
+
+가족들에게 이 코드를 공유하면 실시간으로 볼 수 있어요!`;
+                if(navigator.share) {
+                  navigator.share({title:'Baby Journey 가족 코드', text:msg});
+                } else {
+                  navigator.clipboard.writeText(msg).then(()=>alert('복사됐어요! 카톡 "나에게 보내기"에 붙여넣기 하세요 💕'));
+                }
+              }} style={{
+                width:"100%",padding:"13px",borderRadius:14,border:"none",
+                background:"#FEE500",color:"#3C1E1E",
+                fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:9,
+                display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                boxShadow:"0 4px 14px rgba(254,229,0,.4)"
+              }}>
+                <span style={{fontSize:18}}>💬</span> 카톡으로 코드 저장하기
+              </button>
+
+              {/* 앱 입장 버튼 */}
+              <button onClick={()=>onEnter(newCode)} style={{
+                width:"100%",padding:"13px",borderRadius:14,border:"none",
+                background:"linear-gradient(135deg,#f48fb1,#f06292)",
+                color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",
+                boxShadow:"0 4px 14px rgba(240,98,146,.3)"
+              }}>
+                ✅ 앱 시작하기
+              </button>
+
+              <div style={{fontSize:10,color:"#ddd",marginTop:12,lineHeight:1.6}}>
+                💡 앱 상단에서도 코드를 항상 확인할 수 있어요
+              </div>
             </div>
           </div>
         )}
