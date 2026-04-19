@@ -2737,10 +2737,8 @@ export default function App() {
   const TABS=[{id:"home",label:"홈",emoji:"🏠"},{id:"week",label:"주수",emoji:"📅"},{id:"food",label:"음식",emoji:"🥗"},{id:"care",label:"케어",emoji:"🏥"},{id:"photo",label:"사진",emoji:"📸"},{id:"settings",label:"편집",emoji:"✏️"}];
   const g=state.gender||"unknown";
   // URL 파라미터로 설명서 진입
-  const urlParams = new URLSearchParams(window.location.search);
-  if(urlParams.get('guide') === '1') {
-    return <GuideScreen/>;
-  }
+  const [showGuide] = useState(()=>new URLSearchParams(window.location.search).get('guide')==='1');
+  if(showGuide) return <GuideScreen/>;
 
   // 가족 코드 없으면 진입 화면 표시
   if(!state.familyCode) {
