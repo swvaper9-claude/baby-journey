@@ -2636,24 +2636,25 @@ export default function App() {
   const [showAddFamily,setShowAddFamily]=useState(false); // + 탭 모달
   // ── 앱 시작 시 코드 복구 (URL → localStorage → 없으면 입력) ──
   useEffect(()=>{
-    // 1순위: URL 파라미터에서 코드 읽기
     const urlParams = new URLSearchParams(window.location.search);
     const urlCode = urlParams.get('code');
-    // 2순위: localStorage에서 코드 읽기
     const savedCode = localStorage.getItem('pgApp_familyCode');
     const code = urlCode || savedCode;
-    if(code && !state.familyCode) {
-      // localStorage에도 저장 (백업)
+    if(code) {
       localStorage.setItem('pgApp_familyCode', code);
+      const url = new URL(window.location.href);
+      url.searchParams.set('code', code);
+      window.history.replaceState({}, '', url.toString());
       setState(p=>({...p, familyCode:code}));
     }
   }, []);
 
   // ── Firebase 실시간 구독 (familyCode 기반) ───────────────────
   useEffect(()=>{
-    if(!state.familyCode) return; // 코드 없으면 구독 안 함
+    if(!state.familyCode) return;
     let unsubState = null;
     let unsubPhotos = null;
+    let retryCount = 0;
     const subscribe = () => {
       if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
         const base = `families/${state.familyCode}`;
@@ -2663,7 +2664,12 @@ export default function App() {
           if(value) {
             try {
               const parsed = JSON.parse(value);
-              setState(p=>({...p,...parsed,isUnlocked:p.isUnlocked,familyCode:p.familyCode}));
+              setState(p=>({
+                ...p, ...parsed,
+                isUnlocked: p.isUnlocked,
+                familyCode: p.familyCode, // 코드는 항상 유지
+                followingFamilies: p.followingFamilies, // 팔로잉도 유지
+              }));
             } catch(e) {}
           }
         });
@@ -2678,7 +2684,11 @@ export default function App() {
           }
         });
       } else {
-        setTimeout(subscribe, 500);
+        // Firebase 아직 로드 안됐으면 재시도 (최대 10번)
+        if(retryCount < 10) {
+          retryCount++;
+          setTimeout(subscribe, 500);
+        }
       }
     };
     subscribe();
