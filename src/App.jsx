@@ -1,4 +1,19 @@
 import { useState, useEffect, useRef } from "react";
+import { initializeApp, getApps } from "firebase/app";
+import { getDatabase, ref, set, onValue } from "firebase/database";
+
+// Firebase 직접 초기화 (main.jsx 의존성 제거)
+const firebaseConfig = {
+  apiKey: "AIzaSyDL80TWON_dUARfnEnlffupL8rgJw2noys",
+  authDomain: "baby-journey-ca7a9.firebaseapp.com",
+  databaseURL: "https://baby-journey-ca7a9-default-rtdb.firebaseio.com",
+  projectId: "baby-journey-ca7a9",
+  storageBucket: "baby-journey-ca7a9.firebasestorage.app",
+  messagingSenderId: "180113526494",
+  appId: "1:180113526494:web:2c40414824416598a47c4f"
+};
+const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const db = getDatabase(fbApp);
 
 const fontStyle = `
   @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap');
@@ -1322,10 +1337,9 @@ function FamilyEntry({onEnter}) {
     }
     setLoading(true);
     try {
-      if(window.firebaseDb && window.firebaseRef) {
-        const { set: fbSet } = await import('firebase/database');
-        const r = window.firebaseRef(window.firebaseDb, `families/${newCode}/pgApp_state`);
-        await fbSet(r, JSON.stringify({
+      {
+        const r = ref(db, `families/${newCode}/pgApp_state`);
+        await set(r, JSON.stringify({
           week:8, gender:"unknown", dueDate:"", babyName:"", momName:"",
           conditions:[], pin:password, memo:"", foodRatings:{},
           hospital:null, checkToday:{}, checkDate:"", appointments:[], familyCode:newCode
@@ -1343,14 +1357,12 @@ function FamilyEntry({onEnter}) {
     setLoading(true); setError('');
     const uc = code.toUpperCase().replace(/[^A-Z0-9-]/g,'');
     try {
-      if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
-        const r = window.firebaseRef(window.firebaseDb, `families/${uc}/pgApp_state`);
-        window.firebaseOnValue(r, (snap) => {
+      const r = ref(db, `families/${uc}/pgApp_state`);
+        onValue(r, (snap) => {
           setLoading(false);
           if(snap.val()) onEnter(uc);
           else setError('존재하지 않는 코드예요 😢 다시 확인해주세요!');
         }, { onlyOnce:true });
-      } else { setTimeout(joinFamily, 500); }
     } catch(e) { setLoading(false); setError('연결 오류예요. 다시 시도해주세요.'); }
   };
 
@@ -1692,9 +1704,19 @@ function PinModal({onSuccess,onClose,gender}) {
     if(nx.length===4){
       const check=async()=>{
         try{
-          const res=await window.storage.get("pgApp_state",true);
-          const s=res?JSON.parse(res.value):{};
-          nx===(s.pin||"1234")?onSuccess():(setErr(true),setTimeout(()=>{setInp("");setErr(false);},700));
+          // familyCode를 URL 또는 localStorage에서 읽기
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code') || localStorage.getItem('pgApp_familyCode');
+          if(code) {
+            const stateRef = ref(db, `families/${code}/pgApp_state`);
+            onValue(stateRef, (snapshot) => {
+              const val = snapshot.val();
+              const s = val ? JSON.parse(val) : {};
+              nx===(s.pin||"1234")?onSuccess():(setErr(true),setTimeout(()=>{setInp("");setErr(false);},700));
+            }, {onlyOnce: true});
+          } else {
+            nx==="1234"?onSuccess():(setErr(true),setTimeout(()=>{setInp("");setErr(false);},700));
+          }
         }catch(e){
           nx==="1234"?onSuccess():(setErr(true),setTimeout(()=>{setInp("");setErr(false);},700));
         }
@@ -2656,10 +2678,10 @@ export default function App() {
     let unsubPhotos = null;
     let retryCount = 0;
     const subscribe = () => {
-      if(window.firebaseDb && window.firebaseRef && window.firebaseOnValue) {
+      try {
         const base = `families/${state.familyCode}`;
-        const stateRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_state`);
-        unsubState = window.firebaseOnValue(stateRef, (snapshot) => {
+        const stateRef = ref(db, `${base}/pgApp_state`);
+        unsubState = onValue(stateRef, (snapshot) => {
           const value = snapshot.val();
           if(value) {
             try {
@@ -2667,14 +2689,14 @@ export default function App() {
               setState(p=>({
                 ...p, ...parsed,
                 isUnlocked: p.isUnlocked,
-                familyCode: p.familyCode, // 코드는 항상 유지
-                followingFamilies: p.followingFamilies, // 팔로잉도 유지
+                familyCode: p.familyCode,
+                followingFamilies: p.followingFamilies,
               }));
             } catch(e) {}
           }
         });
-        const photosRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_photos`);
-        unsubPhotos = window.firebaseOnValue(photosRef, (snapshot) => {
+        const photosRef = ref(db, `${base}/pgApp_photos`);
+        unsubPhotos = onValue(photosRef, (snapshot) => {
           const value = snapshot.val();
           if(value) {
             try {
@@ -2683,8 +2705,7 @@ export default function App() {
             } catch(e) {}
           }
         });
-      } else {
-        // Firebase 아직 로드 안됐으면 재시도 (최대 10번)
+      } catch(e) {
         if(retryCount < 10) {
           retryCount++;
           setTimeout(subscribe, 500);
@@ -2703,9 +2724,9 @@ export default function App() {
     if(!state.followingFamilies?.length) return;
     const unsubs = [];
     state.followingFamilies.forEach(fc=>{
-      if(!window.firebaseDb || !window.firebaseRef || !window.firebaseOnValue) return;
-      const r = window.firebaseRef(window.firebaseDb, `families/${fc}/pgApp_state`);
-      const unsub = window.firebaseOnValue(r, (snap)=>{
+      try {
+      const r = ref(db, `families/${fc}/pgApp_state`);
+      const unsub = onValue(r, (snap)=>{
         const val = snap.val();
         if(val) {
           try {
@@ -2715,6 +2736,7 @@ export default function App() {
         }
       });
       unsubs.push(unsub);
+      } catch(e) { console.warn('following sub error', e); }
     });
     return () => unsubs.forEach(u=>u&&u());
   }, [state.followingFamilies]);
@@ -2730,17 +2752,13 @@ export default function App() {
     const {isUnlocked, photos, ...s} = nx;
     const base = `families/${nx.familyCode}`;
     try {
-      if(window.firebaseDb && window.firebaseRef) {
-        const { set: fbSet } = await import('firebase/database');
-        const stateRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_state`);
-        await fbSet(stateRef, JSON.stringify(s));
-      }
+      const stateRef = ref(db, `${base}/pgApp_state`);
+      await set(stateRef, JSON.stringify(s));
     } catch(e) { console.warn("저장 실패", e); }
     try {
-      if(photos !== undefined && window.firebaseDb && window.firebaseRef) {
-        const { set: fbSet } = await import('firebase/database');
-        const photosRef = window.firebaseRef(window.firebaseDb, `${base}/pgApp_photos`);
-        await fbSet(photosRef, JSON.stringify(photos));
+      if(photos !== undefined) {
+        const photosRef = ref(db, `${base}/pgApp_photos`);
+        await set(photosRef, JSON.stringify(photos));
       }
     } catch(e) { console.warn("사진 저장 실패"); }
   };
