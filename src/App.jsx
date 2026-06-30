@@ -485,6 +485,19 @@ const BabyNeutral = ({ size = 68, gender = "unknown" }) => (
 // ══════════════════════════════════════════════════════════════
 // 데이터
 // ══════════════════════════════════════════════════════════════
+// 출산예정일 기준 현재 주수 항상 자동 계산 (날짜 지나면 자동 갱신)
+const calcCurrentWeek = (state) => {
+  if(state && state.dueDate) {
+    const due = new Date(state.dueDate);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const weeksLeft = Math.round((due - today) / (7*24*60*60*1000));
+    return Math.max(1, Math.min(40, 40 - weeksLeft));
+  }
+  return state?.week || 16;
+};
+
 const WEEKLY_DATA = {
   4:{size:"양귀비씨",emoji:"🌱",sizeCm:"0.2cm",babyDesc:"심장이 뛰기 시작해요",momDesc:"착상 완료! 임신 테스트 가능해요"},
   5:{size:"참깨",emoji:"🌿",sizeCm:"0.4cm",babyDesc:"뇌와 척수가 형성되고 있어요",momDesc:"입덧이 시작될 수 있어요"},
@@ -702,7 +715,7 @@ const DEFAULT = {week:16,gender:"unknown",dueDate:"",babyName:"",momName:"",cond
 
 // ── 팔로잉 가족 보기 화면 ───────────────────────────────────
 function FollowingView({data, code, onBack}) {
-  const w = data.week || 8;
+  const w = calcCurrentWeek(data);
   const wd = WEEKLY_DATA[w] || WEEKLY_DATA[16];
   const sev = calcSev(data.conditions||[]);
   const info = SEV_INFO[sev];
@@ -1817,7 +1830,7 @@ function JourneyLine({week}) {
 
 // ── 홈 탭 ─────────────────────────────────────────────────────
 function HomeTab({state}) {
-  const w=state.week; const d=WEEKLY_DATA[w]||WEEKLY_DATA[16];
+  const w=calcCurrentWeek(state); const d=WEEKLY_DATA[w]||WEEKLY_DATA[16];
   const daysLeft=state.dueDate?Math.max(0,Math.round((new Date(state.dueDate)-new Date())/86400000)):null;
   const tri=w<=12?"1분기":w<=27?"2분기":"3분기";
   const g=state.gender||"unknown";
@@ -1912,7 +1925,8 @@ function HomeTab({state}) {
 
 // ── 주수 탭 ───────────────────────────────────────────────────
 function WeekTab({state}) {
-  const [sel,setSel]=useState(state.week); const d=WEEKLY_DATA[sel]||WEEKLY_DATA[16];
+  const currentWeek = calcCurrentWeek(state);
+  const [sel,setSel]=useState(currentWeek); const d=WEEKLY_DATA[sel]||WEEKLY_DATA[16];
   const g=state.gender||"unknown";
   const groups=[{label:"1분기 (4~12주)",weeks:Array.from({length:9},(_,i)=>i+4),color:"#f48fb1"},{label:"2분기 (13~27주)",weeks:Array.from({length:15},(_,i)=>i+13),color:"#66BB6A"},{label:"3분기 (28~40주)",weeks:Array.from({length:13},(_,i)=>i+28),color:"#64b5f6"}];
   return (
@@ -1932,8 +1946,8 @@ function WeekTab({state}) {
           <div style={{fontSize:12,fontWeight:700,color:gr.color,marginBottom:7}}>{gr.label}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {gr.weeks.filter(w=>WEEKLY_DATA[w]).map(w=>(
-              <button key={w} onClick={()=>setSel(w)} style={{width:40,height:40,borderRadius:11,border:"2px solid",borderColor:sel===w?gr.color:"#f0f0f0",background:sel===w?gr.color:w===state.week?"rgba(255,230,240,0.8)":"rgba(255,255,255,0.65)",color:sel===w?"#fff":"#3d2c2c",fontSize:12,fontWeight:700,cursor:"pointer",position:"relative"}}>
-                {w}{w===state.week&&<span style={{position:"absolute",top:-5,right:-5,fontSize:8}}>📍</span>}
+              <button key={w} onClick={()=>setSel(w)} style={{width:40,height:40,borderRadius:11,border:"2px solid",borderColor:sel===w?gr.color:"#f0f0f0",background:sel===w?gr.color:w===currentWeek?"rgba(255,230,240,0.8)":"rgba(255,255,255,0.65)",color:sel===w?"#fff":"#3d2c2c",fontSize:12,fontWeight:700,cursor:"pointer",position:"relative"}}>
+                {w}{w===currentWeek&&<span style={{position:"absolute",top:-5,right:-5,fontSize:8}}>📍</span>}
               </button>
             ))}
           </div>
@@ -2413,7 +2427,7 @@ function PhotoTab({state, onUpdate}) {
           id: Date.now() + Math.random(),
           dataUrl: ev.target.result,
           label: "",
-          week: state.week,
+          week: calcCurrentWeek(state),
           date: new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"}),
         };
         onUpdate({ photos: [...(state.photos||[]), newPhoto] });
@@ -2556,7 +2570,8 @@ function PhotoTab({state, onUpdate}) {
 
 // ── 설정 탭 ───────────────────────────────────────────────────
 function SettingsTab({state,onUpdate,onLock}) {
-  const [form,setForm]=useState({...state});
+  // 진입 시 출산예정일 있으면 오늘 기준 주수 자동 반영
+  const [form,setForm]=useState({...state, week: calcCurrentWeek(state)});
   const toggle=id=>setForm(p=>({...p,conditions:p.conditions?.includes(id)?p.conditions.filter(x=>x!==id):[...(p.conditions||[]),id]}));
   const [saving, setSaving] = useState(false);
   const save = async () => {
@@ -2580,25 +2595,26 @@ function SettingsTab({state,onUpdate,onLock}) {
           <div key={f.key} style={{marginBottom:11}}>
             <div style={{fontSize:11,color:"#999",marginBottom:4}}>{f.label}</div>
             <input type={f.type} value={form[f.key]||""} placeholder={f.ph}
+              disabled={f.key==="week" && !!form.dueDate}
               onChange={e=>{
                 const val = f.type==="number"?Number(e.target.value):e.target.value;
                 // 출산예정일 입력 시 주수 자동 계산
                 if(f.key==="dueDate" && val) {
-                  const dueDate = new Date(val);
-                  const today = new Date();
-                  const diffMs = dueDate - today;
-                  const weeksLeft = Math.round(diffMs / (7*24*60*60*1000));
-                  const currentWeek = Math.max(1, Math.min(40, 40 - weeksLeft));
-                  setForm(p=>({...p, dueDate:val, week:currentWeek}));
+                  setForm(p=>({...p, dueDate:val, week:calcCurrentWeek({...p, dueDate:val})}));
                 } else {
                   setForm(p=>({...p,[f.key]:val}));
                 }
               }}
-              style={{width:"100%",padding:"11px 13px",borderRadius:11,border:"1.5px solid #f8bbd0",fontSize:13,outline:"none",color:"#3d2c2c"}}/>
+              style={{width:"100%",padding:"11px 13px",borderRadius:11,border:"1.5px solid #f8bbd0",fontSize:13,outline:"none",color: f.key==="week" && form.dueDate ? "#aaa" : "#3d2c2c",background: f.key==="week" && form.dueDate ? "#f5f5f5" : "#fff"}}/>
             {/* 출산예정일 입력 시 자동계산 안내 */}
             {f.key==="dueDate" && form.dueDate && (
               <div style={{fontSize:11,color:"#f06292",marginTop:4}}>
-                📅 현재 주수 자동계산: <b>{form.week}주차</b>
+                📅 현재 주수 자동계산: <b>{calcCurrentWeek(form)}주차</b> (매일 자동으로 업데이트돼요)
+              </div>
+            )}
+            {f.key==="week" && form.dueDate && (
+              <div style={{fontSize:10,color:"#bbb",marginTop:3}}>
+                출산예정일을 기준으로 자동 계산돼요. 직접 수정하려면 출산예정일을 비워주세요.
               </div>
             )}
           </div>
@@ -2814,7 +2830,7 @@ ${state.familyCode}
         <div style={{display:"flex",gap:7,alignItems:"center"}}>
           {g==="boy"&&<div style={{background:"#E3F2FD",borderRadius:12,padding:"2px 8px",fontSize:11,color:"#1565C0",fontWeight:700}}>👦 아들</div>}
           {g==="girl"&&<div style={{background:"#FCE4EC",borderRadius:12,padding:"2px 8px",fontSize:11,color:"#C2185B",fontWeight:700}}>👧 딸</div>}
-          <div style={{background:"rgba(255,255,255,.65)",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700}}>{state.week}주차</div>
+          <div style={{background:"rgba(255,255,255,.65)",borderRadius:18,padding:"3px 11px",fontSize:12,color:"#ad1457",fontWeight:700}}>{calcCurrentWeek(state)}주차</div>
           {/* 가족 코드 공유 버튼 */}
           <button onClick={()=>{
             // 코드 포함된 URL 생성 (링크만 눌러도 바로 입장)
