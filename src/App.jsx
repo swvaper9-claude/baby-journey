@@ -2707,6 +2707,7 @@ export default function App() {
                 isUnlocked: p.isUnlocked,
                 familyCode: p.familyCode,
                 followingFamilies: p.followingFamilies,
+                photos: p.photos, // 사진은 별도 구독에서 관리 - 덮어쓰기 금지!
               }));
             } catch(e) {}
           }
